@@ -3,8 +3,12 @@ import advertisements
 import info
 import jobs
 import accounts
+import start
 
-from telegram.ext import Updater
+from telegram.ext import (
+    Updater,
+    PicklePersistence,
+)
 
 # Enable logging
 logging.basicConfig(
@@ -22,14 +26,17 @@ def main():
         # "USERNAME:PASSWORD@" is optional, if you need authentication:
         'proxy_url': 'http://192.168.31.80:10809',
     }
+    persistence = PicklePersistence(filename='store')
     updater = Updater(token='1526755862:AAGdvU35rbPN1FEvPd5JgOcSTa2XBqOG6uk',
-                      use_context=True, request_kwargs=REQUEST_KWARGS)
+                      use_context=True, request_kwargs=REQUEST_KWARGS, persistence=persistence)
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
 
     # Add handler
-    dispatcher.add_handler(info.info_handler)
+    dispatcher.add_handler(start.start_handler)
+    # dispatcher.add_handler(info.info_handler)
+    # dispatcher.add_handler(advertisements.advertisements_handler)
 
     # Start the Bot
     updater.start_polling()
