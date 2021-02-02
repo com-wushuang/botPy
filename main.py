@@ -1,8 +1,4 @@
 import logging
-import advertisements
-import info
-import jobs
-import accounts
 import start
 
 from telegram.ext import (
@@ -17,6 +13,10 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+TOKEN = ''
+with open('token', 'r', encoding='utf-8') as f:
+    TOKEN = f.read()
+
 
 def main():
     # Create the Updater and pass it your bot's token.
@@ -24,10 +24,10 @@ def main():
     # Post version 12 this will no longer be necessary
     REQUEST_KWARGS = {
         # "USERNAME:PASSWORD@" is optional, if you need authentication:
-        'proxy_url': 'http://192.168.31.80:10809',
+        'proxy_url': 'http://127.0.0.1:1087',
     }
     persistence = PicklePersistence(filename='store')
-    updater = Updater(token='1526755862:AAGdvU35rbPN1FEvPd5JgOcSTa2XBqOG6uk',
+    updater = Updater(token=TOKEN,
                       use_context=True, request_kwargs=REQUEST_KWARGS, persistence=persistence)
 
     # Get the dispatcher to register handlers

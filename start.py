@@ -1,4 +1,5 @@
 import logging
+import json
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -29,6 +30,16 @@ FIRST, SECOND = range(2)
 # Callback data
 LIST_ALL, ADD, MODIFY, DELETE, DONE = range(5)
 
+# Button text
+LIST_TEXT, ADD_TEXT, MODIFY_TEXT, DELETE_TEXT, DONE_TEXT = "广告列表", "新增广告", "修改广告", "删除广告", "完成"
+
+# tips
+advertisement_content_tip = json.dumps({
+    "key": "关键字",
+    "introduction": "广告简介",
+    "content": "广告内容"
+}, ensure_ascii=False, indent=4)
+
 
 def start(update: Update, context: CallbackContext):
     # init advertisement list
@@ -40,12 +51,12 @@ def start(update: Update, context: CallbackContext):
 
     keyboard = [
         [
-            InlineKeyboardButton("广告列表", callback_data=(LIST_ALL)),
-            InlineKeyboardButton("新增广告", callback_data=(ADD)),
+            InlineKeyboardButton(LIST_TEXT, callback_data=str(LIST_ALL)),
+            InlineKeyboardButton(ADD_TEXT, callback_data=str(ADD)),
         ],
         [
-            InlineKeyboardButton("修改广告", callback_data=(MODIFY)),
-            InlineKeyboardButton("删除广告", callback_data=(DELETE)),
+            InlineKeyboardButton(MODIFY_TEXT, callback_data=str(MODIFY)),
+            InlineKeyboardButton(DELETE_TEXT, callback_data=str(DELETE)),
         ],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -66,7 +77,7 @@ def list_all(update: Update, context: CallbackContext):
     if not advertisement_list:
         keyboard = [
             [
-                InlineKeyboardButton("新增广告", callback_data=(ADD)),
+                InlineKeyboardButton(ADD_TEXT, callback_data=str(ADD)),
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -80,55 +91,72 @@ def list_all(update: Update, context: CallbackContext):
         # return advertisement_list
         keyboard = [
             [
-                InlineKeyboardButton("广告列表", callback_data=(LIST)),
-                InlineKeyboardButton("新增广告", callback_data=(ADD)),
+                InlineKeyboardButton(LIST_TEXT, callback_data=str(LIST_ALL)),
+                InlineKeyboardButton(ADD_TEXT, callback_data=str(ADD)),
             ],
             [
-                InlineKeyboardButton("修改广告", callback_data=(MODIFY)),
-                InlineKeyboardButton("删除广告", callback_data=(DELETE)),
+                InlineKeyboardButton(MODIFY_TEXT, callback_data=str(MODIFY)),
+                InlineKeyboardButton(DELETE_TEXT, callback_data=str(DELETE)),
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         query.edit_message_text(
-            '这是广告列表',
+            '广告列表如下:\n' + json.dumps(advertisement_list, ensure_ascii=False, indent=4),
             reply_markup=reply_markup,
         )
         return FIRST
 
 
 def add(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        'Alright, please send me the category first, ' 'for example "Most impressive skill"'
+    query = update.callback_query
+    query.answer()
+    query.edit_message_text(
+        '新增广告格式如下:\n' + advertisement_content_tip
     )
 
-    return FIRST
+    return SECOND
 
 
-def received_information(update: Update, context: CallbackContext):
-    user_data = context.user_data
+def save(update: Update, context: CallbackContext):
     text = update.message.text
-    category = user_data['choice']
-    user_data[category] = text
-    del user_data['choice']
-
+    obj = json.loads(text)
+    if obj in context.bot_data["advertisement_list"]:
+        update.message.reply_text(
+            "广告已存在请勿重新添加!"
+        )
+        return SECOND
+    context.bot_data["advertisement_list"].append(obj)
     update.message.reply_text(
-        "Neat! Just so you know, this is what you already told me:"
-        f"{facts_to_str(user_data)} You can tell me more, or change your opinion"
-        " on something.",
-        reply_markup=markup,
+        "广告添加成功，请在广告列表查看!"
     )
-
     return FIRST
 
 
+# def received_information(update: Update, context: CallbackContext):
+#     user_data = context.user_data
+#     text = update.message.text
+#     category = user_data['choice']
+#     user_data[category] = text
+#     del user_data['choice']
+#
+#     update.message.reply_text(
+#         "Neat! Just so you know, this is what you already told me:"
+#         f"{facts_to_str(user_data)} You can tell me more, or change your opinion"
+#         " on something.",
+#         reply_markup=markup,
+#     )
+#
+#     return FIRST
+#
+#
 def done(update: Update, context: CallbackContext):
     user_data = context.user_data
     if 'choice' in user_data:
         del user_data['choice']
 
     update.message.reply_text(
-        f"I learned these facts about you: {facts_to_str(user_data)} Until next time!"
+        f"I learned these facts about you:  Until next time!"
     )
 
     user_data.clear()
@@ -140,17 +168,16 @@ start_handler = ConversationHandler(
     entry_points=[CommandHandler('start', start)],
     states={
         FIRST: [
+            CommandHandler('start', start),
             CallbackQueryHandler(list_all, pattern='^' + str(LIST_ALL) + '$'),
-            CallbackQueryHandler(two, pattern='^' + str(ADD) + '$'),
+            CallbackQueryHandler(add, pattern='^' + str(ADD) + '$'),
             # CallbackQueryHandler(three, pattern='^' + str(UPDATE) + '$'),
             # CallbackQueryHandler(four, pattern='^' + str(DELETE) + '$'),
         ],
-        # LIST_ALL: [
-        #     MessageHandler(
-        #         Filters.text & ~(Filters.command | Filters.regex(
-        #             '^Done$')), regular_choice
-        #     )
-        # ],
+        SECOND: [
+            CommandHandler('start', start),
+            MessageHandler(Filters.regex('^'), save)
+        ],
         # UPDATE: [
         #     MessageHandler(
         #         Filters.text & ~(Filters.command | Filters.regex('^Done$')),
