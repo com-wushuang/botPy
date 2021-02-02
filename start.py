@@ -25,7 +25,7 @@ with open('admin_list', 'r', encoding='utf-8') as f:
     admin_list = admin_str.split("\n")
 
 # Stages
-FIRST, SECOND = range(2)
+FIRST, SECOND, THIRD = range(3)
 
 # Callback data
 LIST_ALL, ADD, MODIFY, DELETE, DONE = range(5)
@@ -123,7 +123,7 @@ def save(update: Update, context: CallbackContext):
     obj = json.loads(text)
     if obj in context.bot_data["advertisement_list"]:
         update.message.reply_text(
-            "广告已存在请勿重新添加!"
+            "广告已存在请勿重复添加!"
         )
         return SECOND
     context.bot_data["advertisement_list"].append(obj)
@@ -133,23 +133,32 @@ def save(update: Update, context: CallbackContext):
     return FIRST
 
 
-# def received_information(update: Update, context: CallbackContext):
-#     user_data = context.user_data
-#     text = update.message.text
-#     category = user_data['choice']
-#     user_data[category] = text
-#     del user_data['choice']
-#
-#     update.message.reply_text(
-#         "Neat! Just so you know, this is what you already told me:"
-#         f"{facts_to_str(user_data)} You can tell me more, or change your opinion"
-#         " on something.",
-#         reply_markup=markup,
-#     )
-#
-#     return FIRST
-#
-#
+def delete(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    advertisement_list = context.bot_data["advertisement_list"]
+    query.edit_message_text(
+        '广告列表如下:\n' + json.dumps(advertisement_list, ensure_ascii=False, indent=4) + '\n' + '请选择要删除的广告',
+    )
+
+    return THIRD
+
+
+def deleted(update: Update, context: CallbackContext):
+    text = update.message.text
+    obj = json.loads(text)
+    if obj not in context.bot_data["advertisement_list"]:
+        update.message.reply_text(
+            "您输入的广告不存在!"
+        )
+        return FIRST
+    context.bot_data["advertisement_list"].remove(obj)
+    update.message.reply_text(
+        "广告删除成功!"
+    )
+    return FIRST
+
+
 def done(update: Update, context: CallbackContext):
     user_data = context.user_data
     if 'choice' in user_data:
@@ -172,18 +181,17 @@ start_handler = ConversationHandler(
             CallbackQueryHandler(list_all, pattern='^' + str(LIST_ALL) + '$'),
             CallbackQueryHandler(add, pattern='^' + str(ADD) + '$'),
             # CallbackQueryHandler(three, pattern='^' + str(UPDATE) + '$'),
-            # CallbackQueryHandler(four, pattern='^' + str(DELETE) + '$'),
+            CallbackQueryHandler(delete, pattern='^' + str(DELETE) + '$'),
         ],
         SECOND: [
             CommandHandler('start', start),
-            MessageHandler(Filters.regex('^'), save)
+            MessageHandler(Filters.text, save)
         ],
-        # UPDATE: [
-        #     MessageHandler(
-        #         Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-        #         received_information,
-        #     )
-        # ],
+        THIRD: [
+            MessageHandler(
+                Filters.text, deleted,
+            )
+        ],
         # DELETE: [
         #     MessageHandler(
         #         Filters.text & ~(Filters.command | Filters.regex('^Done$')),
