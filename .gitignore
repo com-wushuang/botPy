@@ -4,3 +4,5 @@ token
 .idea
 venv/
 store
+account
+user.session

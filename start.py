@@ -1,5 +1,7 @@
 import logging
 import json
+import db
+import peewee
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -17,12 +19,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-# reade admin_list file and store it to a variable admin_list
-admin_list = []
-with open('admin_list', 'r', encoding='utf-8') as f:
-    admin_str = f.read()
-    admin_list = admin_str.split("\n")
 
 # Stages
 FIRST, SECOND, THIRD = range(3)
@@ -42,20 +38,10 @@ advertisement_content_tip = json.dumps({
 
 
 def start(update: Update, context: CallbackContext):
-    # init advertisement list
-    if not context.bot_data.get("advertisement_list", []):
-        context.bot_data["advertisement_list"] = []
-    # add admin config
-    if not context.bot_data.get("admin_list", []):
-        context.bot_data["admin_list"] = admin_list
-
     keyboard = [
         [
             InlineKeyboardButton(LIST_TEXT, callback_data=str(LIST_ALL)),
             InlineKeyboardButton(ADD_TEXT, callback_data=str(ADD)),
-        ],
-        [
-            InlineKeyboardButton(MODIFY_TEXT, callback_data=str(MODIFY)),
             InlineKeyboardButton(DELETE_TEXT, callback_data=str(DELETE)),
         ],
     ]
@@ -72,8 +58,7 @@ def start(update: Update, context: CallbackContext):
 def list_all(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
-    # get advertisement_list
-    advertisement_list = context.bot_data["advertisement_list"]
+    advertisement_list = db.list_ads()
     if not advertisement_list:
         keyboard = [
             [
@@ -93,9 +78,6 @@ def list_all(update: Update, context: CallbackContext):
             [
                 InlineKeyboardButton(LIST_TEXT, callback_data=str(LIST_ALL)),
                 InlineKeyboardButton(ADD_TEXT, callback_data=str(ADD)),
-            ],
-            [
-                InlineKeyboardButton(MODIFY_TEXT, callback_data=str(MODIFY)),
                 InlineKeyboardButton(DELETE_TEXT, callback_data=str(DELETE)),
             ],
         ]
@@ -121,12 +103,7 @@ def add(update: Update, context: CallbackContext):
 def save(update: Update, context: CallbackContext):
     text = update.message.text
     obj = json.loads(text)
-    if obj in context.bot_data["advertisement_list"]:
-        update.message.reply_text(
-            "广告已存在请勿重复添加!"
-        )
-        return SECOND
-    context.bot_data["advertisement_list"].append(obj)
+    db.create_ad(obj)
     update.message.reply_text(
         "广告添加成功，请在广告列表查看!"
     )
@@ -136,23 +113,25 @@ def save(update: Update, context: CallbackContext):
 def delete(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
-    advertisement_list = context.bot_data["advertisement_list"]
+    advertisement_list = db.list_ads()
     query.edit_message_text(
-        '广告列表如下:\n' + json.dumps(advertisement_list, ensure_ascii=False, indent=4) + '\n' + '请选择要删除的广告',
+        '广告列表如下:\n' + json.dumps(advertisement_list, ensure_ascii=False, indent=4) + '\n' + '请输入要删除的广告id',
     )
 
     return THIRD
 
 
 def deleted(update: Update, context: CallbackContext):
-    text = update.message.text
-    obj = json.loads(text)
-    if obj not in context.bot_data["advertisement_list"]:
+    identify = int(update.message.text)
+    try:
+        obj = db.Advertisement.get_by_id(identify)
+    except Exception:
         update.message.reply_text(
             "您输入的广告不存在!"
         )
         return FIRST
-    context.bot_data["advertisement_list"].remove(obj)
+
+    obj.delete_instance()
     update.message.reply_text(
         "广告删除成功!"
     )
@@ -180,7 +159,6 @@ start_handler = ConversationHandler(
             CommandHandler('start', start),
             CallbackQueryHandler(list_all, pattern='^' + str(LIST_ALL) + '$'),
             CallbackQueryHandler(add, pattern='^' + str(ADD) + '$'),
-            # CallbackQueryHandler(three, pattern='^' + str(UPDATE) + '$'),
             CallbackQueryHandler(delete, pattern='^' + str(DELETE) + '$'),
         ],
         SECOND: [
@@ -192,18 +170,6 @@ start_handler = ConversationHandler(
                 Filters.text, deleted,
             )
         ],
-        # DELETE: [
-        #     MessageHandler(
-        #         Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-        #         received_information,
-        #     )
-        # ],
-        # DONE: [
-        #     MessageHandler(
-        #         Filters.text & ~(Filters.command | Filters.regex('^Done$')),
-        #         received_information,
-        #     )
-        # ],
     },
     fallbacks=[MessageHandler(Filters.regex('^Done$'), done)],
 )
