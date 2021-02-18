@@ -1,7 +1,6 @@
 import logging
 import json
 import db
-import peewee
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (

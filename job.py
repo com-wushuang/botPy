@@ -1,6 +1,5 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 import os
-import json
 
 
 def send_channel(advertisement_str):

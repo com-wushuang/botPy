@@ -2,10 +2,7 @@ import logging
 import start
 import job
 
-from telegram.ext import (
-    Updater,
-    PicklePersistence,
-)
+from telegram.ext import Updater
 
 # Enable logging
 logging.basicConfig(
