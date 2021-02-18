@@ -1,8 +1,8 @@
 from telethon import TelegramClient
 import db
 
-api_id = 2675950
-api_hash = "f638e6c807733e3597126c2ad3260013"
+api_id = 1234567
+api_hash = "abcdefghigklmnopqrst123456789"
 
 client = TelegramClient(
     "user",
